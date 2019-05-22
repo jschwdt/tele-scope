@@ -637,6 +637,7 @@ int main( int argc, char* argv[] )
   if( chip0 == 211 ) rot90 = 1; // FDD 0.6E15 n
   if( chip0 == 216 ) rot90 = 1; // FDD 8E15 n
 
+  if( chip0 == 223 ) rot90 = 1;
   if( chip0 == 227 ) rot90 = 1;
 
   if( !rot90 ) {
@@ -906,6 +907,11 @@ int main( int argc, char* argv[] )
   // MOD:
 
   int iMOD = 6;
+  int isync = 999200100;
+  if( run == 35331 ) isync = 60000;
+  if( run == 35336 ) isync = 10200;
+  if( run == 35342 ) isync = 88600;
+  if( run == 35362 ) isync = 28400;
 
   int MODaligniteration = 0;
   double MODalignx = 0.0;
@@ -1398,6 +1404,10 @@ int main( int argc, char* argv[] )
     TProfile( "modlkvst5",
 	      "triplet-MOD links vs time;time [s];triplets with MOD links / min",
 	      1100, 0, 66000, -0.5, 1.5 );
+  TProfile modlkvsev =
+    TProfile( "modlkvsev",
+	      "triplet-MOD links in run;events in run;triplets with MOD links / 200",
+	      600, 0, 120*1000 );
 
   TH1I ntrimHisto = TH1I( "ntrim", "triplet - MOD links;triplet - MOD links;events",
 			    11, -0.5, 10.5 );
@@ -2004,6 +2014,8 @@ int main( int argc, char* argv[] )
 
   bool ldbt = 0;
 
+  vector < vector <cluster> > cl0(9); // previous
+
   do {
 
     // Get next eudaq event:
@@ -2247,6 +2259,10 @@ int main( int argc, char* argv[] )
       } // cl
 
     } // eudaq planes
+
+    if( iev < isync )
+      for( unsigned ipl = 0; ipl < 6; ++ipl )
+	cl0[ipl] = cl[ipl]; // use this
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // read R4S DUT stream:
@@ -2615,7 +2631,7 @@ int main( int argc, char* argv[] )
 
     double triCut = 0.1; // [mm]
 
-    for( vector<cluster>::iterator cA = cl[0].begin(); cA != cl[0].end(); ++cA ) {
+    for( vector<cluster>::iterator cA = cl0[0].begin(); cA != cl0[0].end(); ++cA ) {
 
       double xA = cA->col*ptchx[0] - alignx[0];
       double yA = cA->row*ptchy[0] - aligny[0];
@@ -2624,7 +2640,7 @@ int main( int argc, char* argv[] )
       xA = xmid - ymid*rotx[0];
       yA = ymid + xmid*roty[0];
 
-      for( vector<cluster>::iterator cC = cl[2].begin(); cC != cl[2].end(); ++cC ) {
+      for( vector<cluster>::iterator cC = cl0[2].begin(); cC != cl0[2].end(); ++cC ) {
 
 	double xC = cC->col*ptchx[2] - alignx[2];
 	double yC = cC->row*ptchy[2] - aligny[2];
@@ -2651,7 +2667,7 @@ int main( int argc, char* argv[] )
 
 	// middle plane B = 1:
 
-	for( vector<cluster>::iterator cB = cl[1].begin(); cB != cl[1].end(); ++cB ) {
+	for( vector<cluster>::iterator cB = cl0[1].begin(); cB != cl0[1].end(); ++cB ) {
 
 	  double xB = cB->col*ptchx[1] - alignx[1];
 	  double yB = cB->row*ptchy[1] - aligny[1];
@@ -3665,11 +3681,15 @@ int main( int argc, char* argv[] )
     modlkvst1.Fill( evsec, nm ); // MOD yield vs time
     modlkvst3.Fill( evsec, nm );
     modlkvst5.Fill( evsec, nm );
+    modlkvsev.Fill( iev, nm ); 
     ntrimHisto.Fill( ntrim );
 
     if( ldb ) cout << "done ev " << iev << endl << flush;
 
     ++iev;
+
+    for( unsigned ipl = 0; ipl < 6; ++ipl )
+      cl0[ipl] = cl[ipl]; // remember
 
   } while( reader->NextEvent() && iev < lev );
 
